@@ -152,7 +152,8 @@ public class Snowflake {
     }
 
     /**
-     * @param clock clock to use in order to get current time
+     * @param clock clock to use in order to get current time, default clock uses {@link
+     * System#currentTimeMillis()}
      */
     public Builder withClock(Clock clock) {
       this.clock = clock;
