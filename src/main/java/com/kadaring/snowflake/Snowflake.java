@@ -1,6 +1,7 @@
 package com.kadaring.snowflake;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Generates unique ids.
@@ -39,20 +40,52 @@ public class Snowflake {
   private final int id;
   private final Clock clock;
   private final long baseTime;
-  private final int sequenceBits;
   private final int idBits;
   private final int maxSequence;
+  private final Object lock = new Object();
+  private final AtomicInteger sequence = new AtomicInteger();
+  private volatile long lastSequenceTimestamp;
 
   private Snowflake(Builder builder) {
     this.baseTime = builder.baseTime;
     this.id = builder.id;
     this.clock = builder.clock;
-    this.sequenceBits = builder.sequenceBits;
     this.idBits = builder.idBits;
     this.maxSequence = (1 << builder.sequenceBits) - 1;
   }
 
-  // Convenience method to avoid having to use `new Snowflake.Builder()`;
+  public long generate() {
+    long now = clock.now();
+    long elapsedTime = getElapsedTime(now);
+    long sequence = getSequence(now);
+    return (elapsedTime << 22) | (sequence << idBits) | id;
+  }
+
+  private long getElapsedTime(long now) {
+    long elapsed = now - baseTime;
+    if (elapsed > MAX_TIME_MILLIS) {
+      // RIP to the person who sees this exception in prod years after this code is deployed
+      throw new SnowflakeException("Exceeded the time limit");
+    }
+    return elapsed;
+  }
+
+  private int getSequence(long now) {
+    int nextSequence;
+    // TODO Would it be better to use an atomic reference?
+    synchronized (lock) {
+      if (lastSequenceTimestamp < now) {
+        lastSequenceTimestamp = now;
+        sequence.set(0);
+      }
+      nextSequence = sequence.getAndIncrement();
+    }
+    if (nextSequence > maxSequence) {
+      throw new SnowflakeException(String.format("Exceeded max sequence %s", maxSequence));
+    }
+    return nextSequence;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -60,8 +93,8 @@ public class Snowflake {
   public static class Builder {
 
     private static final Clock DEFAULT_CLOCK = System::currentTimeMillis;
-    private static final int DEFAULT_SEQUENCE_BITS = 6;
-    private static final int DEFAULT_ID_BITS = 16;
+    static final int DEFAULT_SEQUENCE_BITS = 6;
+    static final int DEFAULT_ID_BITS = 16;
     // visible for testing
     static final int REQUIRED_SEQUENCE_AND_ID_BITS =
         DEFAULT_ID_BITS + DEFAULT_SEQUENCE_BITS;
@@ -152,6 +185,10 @@ public class Snowflake {
       checkNonNegative(id, "id");
       checkNonNegative(idBits, "idBits");
       checkNonNegative(sequenceBits, "sequenceBits");
+
+      if (clock.now() < baseTime) {
+        throw new IllegalArgumentException("baseTime is in the future");
+      }
 
       if (sequenceBits + idBits != REQUIRED_SEQUENCE_AND_ID_BITS) {
         throw new IllegalArgumentException(

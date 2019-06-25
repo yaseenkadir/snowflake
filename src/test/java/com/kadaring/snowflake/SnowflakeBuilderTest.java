@@ -14,7 +14,7 @@ import org.junit.Test;
 public class SnowflakeBuilderTest {
 
   @Test
-  public void buildDefaultInstance() {
+  public void testCanBuildDefaultInstance() {
     // Should not throw
     new Builder()
         .withBaseTime(123L)
@@ -23,7 +23,7 @@ public class SnowflakeBuilderTest {
   }
 
   @Test
-  public void baseTimeMustBeSet() {
+  public void testBaseTimeMustBeSet() {
     Exception e = assertThrows(NullPointerException.class, () -> new Builder()
         .withId(123)
         .build());
@@ -31,7 +31,7 @@ public class SnowflakeBuilderTest {
   }
 
   @Test
-  public void idMustBeSet() {
+  public void testIdMustBeSet() {
     Exception e = assertThrows(NullPointerException.class, () -> new Builder()
         .withBaseTime(0L)
         .build());
@@ -39,7 +39,7 @@ public class SnowflakeBuilderTest {
   }
 
   @Test
-  public void idMustBeNonNegative() {
+  public void testIdMustBeNonNegative() {
     Exception e = assertThrows(IllegalArgumentException.class, () -> new Builder()
         .withId(-1)
         .withBaseTime(0L)
@@ -48,7 +48,7 @@ public class SnowflakeBuilderTest {
   }
 
   @Test
-  public void baseTimeMustNotBeNegative() {
+  public void testBaseTimeMustNotBeNegative() {
     Exception e = assertThrows(IllegalArgumentException.class, () -> new Builder()
         .withId(0)
         .withBaseTime(-1L)
@@ -57,7 +57,18 @@ public class SnowflakeBuilderTest {
   }
 
   @Test
-  public void idBitsMustBeNonNegative() {
+  public void testBaseTimeMustBeInThePast() {
+    Exception e = assertThrows(IllegalArgumentException.class, () -> new Builder()
+        .withId(0)
+        .withBaseTime(1_000L)
+        .withClock(() -> 0)
+        .build()
+    );
+    assertThat(e.getMessage()).isEqualTo("baseTime is in the future");
+  }
+
+  @Test
+  public void testIdBitsMustBeNonNegative() {
     Exception e = assertThrows(IllegalArgumentException.class, () -> new Builder()
         .withId(0)
         .withBaseTime(0L)
@@ -67,7 +78,7 @@ public class SnowflakeBuilderTest {
   }
 
   @Test
-  public void sequenceBitsMustBeNonNegative() {
+  public void testSequenceBitsMustBeNonNegative() {
     Exception e = assertThrows(IllegalArgumentException.class, () -> new Builder()
         .withId(0)
         .withBaseTime(0L)
@@ -77,17 +88,17 @@ public class SnowflakeBuilderTest {
   }
 
   @Test
-  public void idBitsCanBeZero() {
+  public void testIdBitsCanBeZero() {
     new Builder()
-        .withId(0)
-        .withBaseTime(0L)
         .withIdBits(0)
+        .withId(0) // if idBits is zero, id must be zero too
+        .withBaseTime(0L)
         .withSequenceBits(22)
         .build();
   }
 
   @Test
-  public void idCannotBeZeroWhenIdBitsAreZero() {
+  public void testIdCannotBeZeroWhenIdBitsAreZero() {
     Exception e = assertThrows(IllegalArgumentException.class, () -> new Builder()
         // 1 is a valid id normally, but if bits are zero it is not a valid id
         .withId(1)
@@ -99,7 +110,7 @@ public class SnowflakeBuilderTest {
   }
 
   @Test
-  public void idDoesNotFitInIdBits() {
+  public void testIdDoesNotFitInIdBits() {
     Exception e = assertThrows(IllegalArgumentException.class, () -> new Builder()
         .withId(2)
         .withIdBits(1)
@@ -118,7 +129,7 @@ public class SnowflakeBuilderTest {
   }
 
   @Test
-  public void bitsMustSumTo22() {
+  public void testBitsMustSumTo22() {
     // Negative ids bits/sums are tested in other tests
     List<Pair<Integer, Integer>> idBitsAndSequenceBits = Arrays.asList(
         Pair.of(10, 11),
@@ -145,7 +156,28 @@ public class SnowflakeBuilderTest {
         .build();
   }
 
-  // I should just written this library in kotlin. Maybe the tests?
+  @Test
+  public void canStillBuildEvenIfMaxTimeWillBeExceeded() {
+    // We do not want us to fail to instantiate an instance due to time being exceeded
+    // Consider a web API that initializes Snowflake via DI. If time has been exceeded it should
+    // still initialize because the API may still be able to serve requests that do not need new ids
+    // (e.g. read requests)
+
+    Clock clock = () -> Snowflake.MAX_TIME_MILLIS + 1;
+
+    // Should not throw
+    Snowflake snowflake = new Builder()
+        .withId(0)
+        .withBaseTime(0L)
+        .withClock(clock)
+        .build();
+
+    // Should throw only after calling generate
+    Exception e = assertThrows(SnowflakeException.class, snowflake::generate);
+    assertThat(e.getMessage()).isEqualTo("Exceeded the time limit");
+  }
+
+  // I should have just written this library in kotlin. Maybe the tests?
   private static class Pair<T1, T2> {
 
     private final T1 first;

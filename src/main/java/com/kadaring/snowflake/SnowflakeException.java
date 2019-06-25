@@ -1,15 +1,11 @@
 package com.kadaring.snowflake;
 
 /**
- * Base exception thrown by this Snowflake library
+ * Base exception thrown by this library
  */
 public class SnowflakeException extends RuntimeException {
 
   public SnowflakeException(String message) {
     super(message);
-  }
-
-  public SnowflakeException(String message, Throwable cause) {
-    super(message, cause);
   }
 }
