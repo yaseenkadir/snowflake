@@ -12,6 +12,15 @@ This library uses Camflake as basis but with a few minor changes.
 * Camflake is very good, there are a couple of minor bugs in it though that I wanted to address.
 * I hadn't seen [this blog](https://www.callicoder.com/distributed-unique-id-sequence-number-generator/) or its [corresponding repo](https://www.callicoder.com/distributed-unique-id-sequence-number-generator/) before I decided to make my own. If I had I wouldn't have created this one.
 
+## Usage
+```java
+Snowflake snowflake = Snowflake.builder()
+    .withBaseTime(0)
+    .withId(123)
+    .build();
+long id = snowflake.generate();
+```
+
 ### What was wrong with Camflake?
 * It can't be unit tested without mocking (ew)
 * A [couple of minor bugs](https://github.com/cam-inc/camflake/issues/created_by/yaseenkadir)
