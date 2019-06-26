@@ -61,7 +61,7 @@ Licensed under the MIT license because Camflake was used as the basis for this p
 * https://web.archive.org/web/20190614171752/https://blog.twitter.com/engineering/en_us/a/2010/announcing-snowflake.html
 * https://rob.conery.io/2014/05/28/a-better-id-generator-for-postgresql/
 
-### What was wrong with Camflake?
+## What was wrong with Camflake?
 * It can't be unit tested without mocking (ew)
 * A [couple of minor bugs](https://github.com/cam-inc/camflake/issues/created_by/yaseenkadir)
 
